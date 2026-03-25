@@ -33,6 +33,7 @@ static SV_MenuItem menu_items[] = {
     { "Select Drive - Eject Disk",       SV_ACT_DISK_MANAGER,   NULL },
     { "Machine:",           SV_ACT_MACHINE_SELECT, "CoCo 2" },
     { "Reset Machine",      SV_ACT_RESET,          NULL },
+    { "Debug Dump",         SV_ACT_DEBUG_DUMP,     NULL },
     { "About",              SV_ACT_ABOUT,          NULL },
 };
 
@@ -83,6 +84,12 @@ static void execute_action(Supervisor_t* sv, SV_MenuAction action) {
                 s->needs_redraw = true;
             };
             sv->confirm_context = sv;
+            sv->needs_redraw = true;
+            break;
+
+        case SV_ACT_DEBUG_DUMP:
+            sv->prev_state = sv->state;
+            sv->state = SV_DEBUG_DUMP;
             sv->needs_redraw = true;
             break;
 

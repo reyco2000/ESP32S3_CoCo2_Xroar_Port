@@ -31,6 +31,7 @@ enum SV_MenuAction : uint8_t {
     SV_ACT_RESET,
     SV_ACT_SETTINGS,
     SV_ACT_ABOUT,
+    SV_ACT_DEBUG_DUMP,
     SV_ACT_RESUME,
 };
 

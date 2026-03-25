@@ -23,6 +23,7 @@
 #include "sv_menu.h"
 #include "sv_filebrowser.h"
 #include "sv_disk.h"
+#include "sv_debug.h"
 #include "sv_render.h"
 #include "../hal/hal.h"
 #include "../utils/debug.h"
@@ -378,6 +379,7 @@ void supervisor_init(Machine* m) {
 
     sv_menu_init(&sv);
     sv_filebrowser_init(&sv);
+    sv_debug_init(&sv);
 
     DEBUG_PRINT("Supervisor: initialized");
 }
@@ -430,6 +432,10 @@ void supervisor_on_key(uint8_t hid_usage, bool pressed) {
             }
             break;
 
+        case SV_DEBUG_DUMP:
+            sv_debug_on_key(&sv, hid_usage, pressed);
+            break;
+
         case SV_CONFIRM_DIALOG:
             confirm_on_key(&sv, hid_usage, pressed);
             break;
@@ -464,6 +470,10 @@ bool supervisor_update_and_render(void) {
 
         case SV_ABOUT:
             about_render(&sv);
+            break;
+
+        case SV_DEBUG_DUMP:
+            sv_debug_render(&sv);
             break;
 
         case SV_CONFIRM_DIALOG:

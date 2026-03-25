@@ -35,6 +35,7 @@ enum SV_State : uint8_t {
     SV_MACHINE_SELECT,
     SV_SETTINGS,
     SV_ABOUT,
+    SV_DEBUG_DUMP,
     SV_CONFIRM_DIALOG,
 };
 
