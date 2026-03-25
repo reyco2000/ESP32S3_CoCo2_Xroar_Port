@@ -18,6 +18,7 @@ A full **TRS-80 Color Computer 2 (CoCo 2)** emulator running on an ESP32-S3 micr
 - **Multiple display support** — ILI9341, ST7789, or ST7796 SPI TFT panels
 - **Audio output** via DAC or I2S
 - **64 KB RAM**, configurable to 16/32/64 KB
+- **25 FPS**, cunrrely redeting 25 FPS on TFT display
 
 ## Hardware Requirements
 
@@ -112,6 +113,8 @@ A full **TRS-80 Color Computer 2 (CoCo 2)** emulator running on an ESP32-S3 micr
 | USB D-/D+      | GPIO19/20 | Native USB OTG (keyboard)   |
 
 > The TFT and SD card use **separate SPI buses** (FSPI and HSPI) so there is no bus contention during emulation.
+>
+> To be able to use USB port on the **ESP32S3 DEV board need to solder USB OTG in the back of devboard**, (https://danielmangum.com/posts/usb-otg-esp32s3/?_x_tr_sl=en&_x_tr_tl=es&_x_tr_hl=es&_x_tr_pto=tc)  
 
 ## SD Card Setup
 
@@ -155,7 +158,7 @@ Download [Arduino IDE 2.x](https://www.arduino.cc/en/software).
 ### 2. Add ESP32 Board Support
 
 - Go to **File > Preferences** and add the ESP32 board manager URL
-- Go to **Tools > Board > Board Manager**, search for **esp32** by Espressif, and install it
+- Go to **Tools > Board > Board Manager**, search for **esp32** by Espressif, and install it **(Tested with esp32:esp32 3.3.3)**
 
 ### 3. Select Board Settings
 
@@ -175,7 +178,7 @@ Download [Arduino IDE 2.x](https://www.arduino.cc/en/software).
 
 Via **Sketch > Include Library > Manage Libraries**:
 
-- **TFT_eSPI** by Bodmer — configure `User_Setup.h` for your display type and pins
+- **TFT_eSPI** by Bodmer — configure `User_Setup.h` for your display type and pins (Tested  using TFT_eSPI 2.5.43)
 - **SD** (built-in Arduino library)
 - **ESP32_USB_Host_HID** by esp32beans
 
@@ -187,6 +190,8 @@ Edit `config.h` to match your hardware:
 - `DISPLAY_SCALE_MODE` — 0 = 1:1 centered, 1 = scaled fill, 2 = zoom
 - `PIN_*` constants — adjust if your wiring differs
 - `RAM_SIZE_KB` — 16, 32, or 64
+
+**Replace User_config.h with templates based on display type**
 
 ### 6. Compile & Upload
 
@@ -295,6 +300,9 @@ src/
 - Max 128 file entries in the SD card browser
 - Machine selection is fixed to CoCo 2 (Dragon/CoCo 1 stubs only)
 - Settings screen not yet implemented
+- Sound does not match CoCo's frequency
+- Integration (Demo Mode) on going
+- NTSC TV Emulation stub only
 
 ## Credits
 
@@ -308,4 +316,3 @@ src/
 
 This project is licensed under the **GNU General Public License v3.0**. See [LICENSE](LICENSE) for details.
 
-Based on XRoar, Copyright (C) 2003–2014 Ciaran Anscomb.
