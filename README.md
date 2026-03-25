@@ -1,4 +1,4 @@
-# CoCo_ESP32 — Color Computer 2 Emulator for ESP32-S3
+# Color Computer 2 Emulator for ESP32-S3
 
 A full **TRS-80 Color Computer 2 (CoCo 2)** emulator running on an ESP32-S3 microcontroller. Ported from the [XRoar](http://www.6809.org.uk/xroar/) emulator by Ciaran Anscomb.
 
@@ -19,6 +19,7 @@ A full **TRS-80 Color Computer 2 (CoCo 2)** emulator running on an ESP32-S3 micr
 - **Audio output** via DAC or I2S
 - **64 KB RAM**, configurable to 16/32/64 KB
 - **25 FPS**, currently rendering 25 FPS on TFT display
+- **Debugger**, A debugger to dump coco memory to serial port on Motorola-S or Intel Hex format
 
 ## Hardware Requirements
 
