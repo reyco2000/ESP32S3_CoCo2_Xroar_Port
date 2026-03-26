@@ -1,3 +1,4 @@
+#pragma GCC optimize("O2")
 /*
  * ============================================================
  *   CoCo_ESP32 Beta-1 March 2026 - CoCo 2 Emulator for ESP32-S3
@@ -258,17 +259,35 @@ void machine_write(uint16_t addr, uint8_t val) {
             mc6821_write(&m->pia1, reg, val);
 
             // PIA1 port A: 6-bit DAC audio (bits 2-7)
+            // Only output when sound MUX is enabled (PIA1 CRB bit 3) and
+            // source is DAC (PIA0 CRA/CRB bit 3 both 0). BASIC clears
+            // PIA1 CRB bit 3 during JOYSTK() to mute the DAC.
             if (reg == PIA_REG_DA || reg == PIA_REG_CRA) {
-                uint8_t pa = m->pia1.data_a & m->pia1.ddr_a;
-                hal_audio_write_dac((pa >> 2) & 0x3F);
+                bool mux_en = (m->pia1.ctrl_b & 0x08) != 0;
+                uint8_t mux_src = ((m->pia0.ctrl_b & 0x08) >> 2)
+                                | ((m->pia0.ctrl_a & 0x08) >> 3);
+                if (mux_en && mux_src == 0) {
+                    uint8_t pa = m->pia1.data_a & m->pia1.ddr_a;
+                    hal_audio_write_dac((pa >> 2) & 0x3F);
+                }
             }
             // PIA1 port B drives VDG AG (bit 7) and CSS (bit 3)
             // GM0-GM2 come from SAM V0-V2, not PIA1
             if (reg == PIA_REG_DB || reg == PIA_REG_CRB) {
                 update_vdg_mode(m);
-                // Single-bit audio: PIA1 port B bit 1
+                // Single-bit audio: PIA1 port B bit 1 (independent of MUX)
                 uint8_t pb = m->pia1.data_b & m->pia1.ddr_b;
                 hal_audio_write_bit((pb & 0x02) != 0);
+                // When MUX re-enabled with source=DAC, restore DAC audio
+                if (reg == PIA_REG_CRB) {
+                    bool mux_en = (m->pia1.ctrl_b & 0x08) != 0;
+                    uint8_t mux_src = ((m->pia0.ctrl_b & 0x08) >> 2)
+                                    | ((m->pia0.ctrl_a & 0x08) >> 3);
+                    if (mux_en && mux_src == 0) {
+                        uint8_t pa = m->pia1.data_a & m->pia1.ddr_a;
+                        hal_audio_write_dac((pa >> 2) & 0x3F);
+                    }
+                }
             }
             return;
         }
@@ -563,8 +582,8 @@ void machine_run_frame(Machine* m) {
         machine_run_scanline(m);
     }
 
-    // Present completed frame
-    hal_video_present();
+    // Present completed frame (with VRAM shadow compare — OPT-16)
+    hal_video_present(m->ram, m->sam.vdg_base, m->vdg.mode);
 
     m->frame_count++;
 }

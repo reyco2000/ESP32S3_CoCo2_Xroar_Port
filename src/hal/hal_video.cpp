@@ -34,8 +34,18 @@
 static TFT_eSPI tft;
 static TFT_eSprite* sprite = nullptr;
 static bool display_available = false;
-static uint8_t frame_skip_count = 0;
-static const uint8_t FRAME_SKIP = 1;  // Push every 2nd frame
+
+// --- OPT-16: VRAM shadow compare to skip SPI push on unchanged screen ---
+// VRAM size per GM value: bytes_per_row * rows (from mc6847.cpp graphics table)
+static const uint16_t vram_sizes_by_gm[8] = {
+    1024, 1024, 2048, 1536, 3072, 3072, 6144, 6144
+};
+static const uint16_t VRAM_TEXT_SIZE = 512;    // Text mode: 32 cols x 16 rows
+static const uint16_t VRAM_SHADOW_MAX = 6144;  // Largest mode (RG6/CG6)
+static uint8_t  vram_shadow[VRAM_SHADOW_MAX];
+static uint16_t shadow_base = 0xFFFF;          // Force first push
+static uint8_t  shadow_mode = 0xFF;
+static uint8_t  force_push_count = 0;          // Force N pushes after mode/base change
 
 // RGB565 palette mapping for VDG color indices
 static uint16_t palette_rgb565[16];
@@ -253,7 +263,7 @@ void hal_video_toggle_fps_overlay(void) {
     fps_last_time = millis();
 }
 
-void hal_video_present(void) {
+void hal_video_present(const uint8_t* ram, uint16_t vdg_base, uint8_t vdg_mode) {
     if (!display_available || !sprite) return;
 
     // Count every emulated frame for accurate FPS
@@ -261,14 +271,43 @@ void hal_video_present(void) {
         fps_update();
     }
 
-    // Skip frames to reduce SPI blocking time
-    frame_skip_count++;
-    if (frame_skip_count >= FRAME_SKIP) {
-        frame_skip_count = 0;
-        sprite->pushSprite(SPR_X, SPR_Y);
-        if (fps_overlay_enabled) {
-            fps_overlay_draw();
-        }
+    // OPT-16: VRAM shadow compare — skip SPI push if screen unchanged
+    // Determine VRAM region size based on current mode
+    uint16_t vram_size;
+    if (vdg_mode & VDG_AG) {
+        // Graphics mode: size depends on GM bits (0-7)
+        uint8_t gm = vdg_mode & 0x07;
+        vram_size = vram_sizes_by_gm[gm];
+    } else {
+        // Text/semigraphics mode: 32x16 = 512 bytes
+        vram_size = VRAM_TEXT_SIZE;
+    }
+
+    // Detect mode or base change — force several pushes to catch
+    // multi-frame screen setup (e.g., game title screens drawn over 2-3 frames)
+    bool mode_or_base_changed = (vdg_base != shadow_base || vdg_mode != shadow_mode);
+    if (mode_or_base_changed) {
+        force_push_count = 10;  // Force next 10 frames to push
+    }
+
+    // Check if anything changed: base address, mode bits, or VRAM content
+    if (ram && force_push_count == 0 &&
+        memcmp(vram_shadow, ram + vdg_base, vram_size) == 0) {
+        return;  // No change — skip SPI push
+    }
+
+    if (force_push_count > 0) force_push_count--;
+
+    // Update shadow
+    if (ram) {
+        memcpy(vram_shadow, ram + vdg_base, vram_size);
+        shadow_base = vdg_base;
+        shadow_mode = vdg_mode;
+    }
+
+    sprite->pushSprite(SPR_X, SPR_Y);
+    if (fps_overlay_enabled) {
+        fps_overlay_draw();
     }
 }
 

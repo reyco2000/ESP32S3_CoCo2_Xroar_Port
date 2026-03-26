@@ -1,4 +1,4 @@
-# Supervisor Module — CoCo_ESP32 OSD
+# Supervisor Module — ESP32_CoCo2_XRoar_Port OSD
 
 ## Overview
 

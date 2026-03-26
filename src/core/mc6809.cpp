@@ -1,3 +1,4 @@
+#pragma GCC optimize("O2")
 /*
  * ============================================================
  *   CoCo_ESP32 Beta-1 March 2026 - CoCo 2 Emulator for ESP32-S3

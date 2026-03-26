@@ -1,4 +1,4 @@
-# Keyboard HAL — CoCo_ESP32
+# Keyboard HAL — ESP32_CoCo2_XRoar_Port
 
 ## Overview
 

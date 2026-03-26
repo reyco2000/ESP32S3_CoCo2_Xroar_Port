@@ -1,8 +1,8 @@
-# Color Computer 2 Emulator for ESP32-S3
+# ESP32_CoCo2_XRoar_Port — Color Computer 2 Emulator for ESP32-S3
 
 A full **TRS-80 Color Computer 2 (CoCo 2)** emulator running on an ESP32-S3 microcontroller. Ported from the [XRoar](http://www.6809.org.uk/xroar/) emulator by Ciaran Anscomb.
 
-**Beta-2 — March 26 2026**
+**Beta-1 — March 2026**
 
 ## Features
 
@@ -18,8 +18,7 @@ A full **TRS-80 Color Computer 2 (CoCo 2)** emulator running on an ESP32-S3 micr
 - **Multiple display support** — ILI9341, ST7789, or ST7796 SPI TFT panels
 - **Audio output** via DAC or I2S
 - **64 KB RAM**, configurable to 16/32/64 KB
-- **25-64 FPS**, currently rendering 25 FPS on TFT display for graphics mode 64 FPS for Text mode
-- **Debugger**, A debugger to dump coco memory to serial port on Motorola-S or Intel Hex format
+- **25 FPS**, currently rendering 25 FPS on TFT display
 
 ## Hardware Requirements
 
@@ -268,7 +267,7 @@ $FFC0–$FFDF   SAM control registers
 ## Project Structure
 
 ```
-CoCo_ESP32.ino              Main Arduino sketch (setup/loop)
+ESP32_CoCo2_XRoar_Port.ino  Main Arduino sketch (setup/loop)
 config.h                    Hardware and build configuration
 src/
 ├── core/                   Emulation core
@@ -303,12 +302,13 @@ src/
 
 ## Known Limitations
 
-- CoCo Joystick Button goes to VCC emulator goes to GND, this needs a minor adjustment 
+- No TFT framebuffer readback (no MISO) — brief black flash when closing OSD
+- CoCo Joystic uses 
 - DMK disk format is recognized but not mountable
 - Max 128 file entries in the SD card browser
 - Machine selection is fixed to CoCo 2 (Dragon/CoCo 1 stubs only)
 - Settings screen not yet implemented
-- Sound does not match CoCo's frequency pitch sounds different
+- Sound does not match CoCo's frequency
 - Integration (Demo Mode) on going
 - NTSC TV Emulation stub only
 

@@ -1,9 +1,9 @@
 
-# CoCo_ESP32 Architecture Document
+# ESP32_CoCo2_XRoar_Port Architecture Document
 
 ## Project Overview
 
-CoCo_ESP32 is a Tandy Color Computer 2 (CoCo 2) emulator running on an ESP32-S3 microcontroller. It is derived from XRoar, Ciaran Anscomb's Dragon
+ESP32_CoCo2_XRoar_Port is a Tandy Color Computer 2 (CoCo 2) emulator running on an ESP32-S3 microcontroller. It is derived from XRoar, Ciaran Anscomb's Dragon
 /CoCo emulator originally written in C for desktop platforms. The project adapts XRoar's emulation core to run on a resource-constrained embedded
 system with custom hardware abstraction for display, audio, keyboard, and storage.
 
@@ -17,7 +17,7 @@ system with custom hardware abstraction for display, audio, keyboard, and storag
 
 ```
 +-----------------------------------------------------------+
-|                    CoCo_ESP32.ino                          |
+|               ESP32_CoCo2_XRoar_Port.ino                    |
 |                   (Arduino entry point)                    |
 |  setup() -> hal_init, machine_init, load_roms, video_init |
 |  loop()  -> hal_process_input, supervisor, machine_run    |
@@ -47,7 +47,7 @@ system with custom hardware abstraction for display, audio, keyboard, and storag
 
 ## Module Breakdown
 
-### 1. Entry Point: `CoCo_ESP32.ino`
+### 1. Entry Point: `ESP32_CoCo2_XRoar_Port.ino`
 
 The Arduino sketch orchestrates boot and the main loop.
 
@@ -354,8 +354,8 @@ Compile-time settings for the entire project:
 Arduino CLI with ESP32 board support:
 
 ```bash
-arduino-cli compile --fqbn esp32:esp32:esp32s3:USBMode=default,CDCOnBoot=default,FlashSize=16M,PSRAM=opi CoCo_ESP32/
-arduino-cli upload --fqbn esp32:esp32:esp32s3:USBMode=default,CDCOnBoot=default,FlashSize=16M,PSRAM=opi --port /dev/ttyACM0 CoCo_ESP32/
+arduino-cli compile --fqbn esp32:esp32:esp32s3:USBMode=default,CDCOnBoot=default,FlashSize=16M,PSRAM=opi ESP32_CoCo2_XRoar_Port/
+arduino-cli upload --fqbn esp32:esp32:esp32s3:USBMode=default,CDCOnBoot=default,FlashSize=16M,PSRAM=opi --port /dev/ttyACM0 ESP32_CoCo2_XRoar_Port/
 ```
 
 **Critical build flags:**
@@ -455,8 +455,8 @@ BASIC: LOAD"FILE"
 ### 11. Source File Reference
 
 ```
-CoCo_ESP32/
-  CoCo_ESP32.ino          Main sketch (setup + loop)
+ESP32_CoCo2_XRoar_Port/
+  ESP32_CoCo2_XRoar_Port.ino  Main sketch (setup + loop)
   config.h                 Hardware config, pin assignments, timing
 
   src/core/

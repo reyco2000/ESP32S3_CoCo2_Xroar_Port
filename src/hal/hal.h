@@ -56,7 +56,11 @@ void hal_video_set_mode(uint8_t mode);
 void hal_video_render_scanline(int line, const uint8_t* pixels, int width);
 
 // Present the completed frame to the display
-void hal_video_present(void);
+// Performs VRAM shadow compare: skips SPI push if screen unchanged (OPT-16)
+//   ram:      pointer to CoCo RAM (64KB)
+//   vdg_base: SAM F0-F6 display base address
+//   vdg_mode: VDG mode byte (AG|GM|CSS bits)
+void hal_video_present(const uint8_t* ram, uint16_t vdg_base, uint8_t vdg_mode);
 
 // ============================================================
 // Audio subsystem

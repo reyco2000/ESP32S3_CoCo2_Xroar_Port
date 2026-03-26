@@ -1,13 +1,13 @@
 /*
  * ============================================================
- *   CoCo_ESP32 Beta-1 March 2026 - CoCo 2 Emulator for ESP32-S3
+ *   ESP32_CoCo2_XRoar_Port Beta-1 March 2026 - CoCo 2 Emulator for ESP32-S3
  *   (C) 2026 Reinaldo Torres / CoCo Byte Club
  *   https://github.com/reyco2000/ESP32_CoCo2_XRoar_Port
  *   Based on XRoar by Ciaran Anscomb
  *   ESP32 Port of XRoar co-developed with Claude Code (Anthropic)
  *   MIT License
  * ============================================================
- *  File   : CoCo_ESP32.ino
+ *  File   : ESP32_CoCo2_XRoar_Port.ino
  *  Module : Main Arduino sketch — setup/loop entry point for CoCo 2 emulator on ESP32-S3
  * ============================================================
  */

@@ -1,8 +1,8 @@
-# CoCo_ESP32 Core Modules — Implementation Details
+# ESP32_CoCo2_XRoar_Port Core Modules — Implementation Details
 
 ## Overview
 
-The `CoCo_ESP32/src/core/` directory contains the emulation core: the four major ICs of the CoCo 2 plus the machine integration layer that wires t
+The `ESP32_CoCo2_XRoar_Port/src/core/` directory contains the emulation core: the four major ICs of the CoCo 2 plus the machine integration layer that wires t
 hem together. All modules are derived from XRoar's C source by Ciaran Anscomb, adapted to C++ for the ESP32-S3 Arduino environment.
 
 **Source files:**
@@ -604,7 +604,7 @@ machine_run_frame(m):
   cycles_this_frame = 0, scanline = 0
   for 262 scanlines:
     machine_run_scanline(m)
-  hal_video_present()        // Push completed sprite to TFT
+  hal_video_present(ram, sam.vdg_base, vdg.mode)  // VRAM shadow compare + conditional push
   frame_count++
 ```
 
@@ -645,7 +645,7 @@ with the core.
 |-------------|------------|---------|
 | `hal_video_render_scanline(line, pixels, width)` | `machine_run_scanline()` | Converts VDG `line_buffer[256]` palette indices → RGB565, writes i
 nto TFT_eSprite framebuffer |
-| `hal_video_present()` | `machine_run_frame()` | Pushes sprite to TFT via SPI (every 2nd frame for performance) |
+| `hal_video_present(ram, vdg_base, vdg_mode)` | `machine_run_frame()` | VRAM shadow compare: skips SPI push if screen unchanged (OPT-16) |
 | `hal_video_get_tft()` | `supervisor.cpp` | Returns TFT_eSPI pointer for OSD direct rendering |
 
 **Data flow**: `VDG line_buffer[256]` (palette indices) → `palette_swapped[]` lookup → memcpy to sprite framebuffer → `sprite->pushSprite()` to TF
@@ -656,8 +656,7 @@ T.
 - Mode 1: Nearest-neighbor stretch to fill display minus border
 - Mode 2: Fixed zoom factor centered on display
 
-**Frame skipping**: `FRAME_SKIP = 1` means every 2nd frame is pushed, halving SPI blocking time (~40ms per push). FPS overlay (F5 toggle) counts e
-mulated frames and draws on the TFT after each push.
+**VRAM shadow compare (OPT-16)**: Instead of blind frame skipping, `hal_video_present()` compares the current CoCo VRAM against a 6,144-byte shadow buffer. Unchanged frames skip the SPI push entirely (~3,500 us saved). On mode/base changes, 10 frames are force-pushed to capture multi-frame screen setup. Measured: 64 FPS text (static), 45 FPS graphics (static), 27 FPS graphics (scrolling). FPS overlay (F5 toggle) counts emulated frames and draws on TFT after each push.
 
 ### Audio HAL (`hal_audio.cpp`)
 
@@ -665,16 +664,18 @@ mulated frames and draws on the TFT after each push.
 
 | HAL Function | Called From | Purpose |
 |-------------|------------|---------|
-| `hal_audio_write_dac(dac6)` | `machine_write()` PIA1 port A | 6-bit DAC value (0–63) scaled to 8-bit PWM duty |
-| `hal_audio_write_bit(value)` | `machine_write()` PIA1 port B | Single-bit audio → PWM 0 or 255 |
+| `hal_audio_write_dac(dac6)` | `machine_write()` PIA1 port A | 6-bit DAC value (0–63) scaled to 8-bit PWM duty. **Gated by sound MUX** (PIA1 CRB bit 3 + PIA0 CA2/CB2 source select) |
+| `hal_audio_write_bit(value)` | `machine_write()` PIA1 port B | Single-bit audio → PWM 0 or 255 (independent of MUX) |
 
 **Implementation**: ESP32-S3 has no internal DAC. Uses LEDC PWM at 78.125 kHz (8-bit resolution) on GPIO17. A hardware timer ISR at 22,050 Hz read
 s `audio_current_level` and writes it to the PWM duty register via direct LEDC peripheral access (`LEDC.channel_group[0].channel[ch].duty.duty`).
 The ISR uses `IRAM_ATTR` for timing-critical execution.
 
 **Two audio paths** (matching real CoCo hardware):
-1. **6-bit DAC**: PIA1 PA bits 2–7 → `(dac6 << 2) | (dac6 >> 4)` scales 0–63 to 0–255
-2. **Single-bit**: PIA1 PB bit 1 → 0 or 255 (full swing for cassette/beep)
+1. **6-bit DAC**: PIA1 PA bits 2–7 → `(dac6 << 2) | (dac6 >> 4)` scales 0–63 to 0–255. **Gated by sound MUX**: only output when PIA1 CRB bit 3 is set (MUX enabled) and PIA0 CA2/CB2 select DAC source (both 0). BASIC clears PIA1 CRB bit 3 during `JOYSTK()` reads to mute the DAC (prevents audible noise from successive approximation ADC writes).
+2. **Single-bit**: PIA1 PB bit 1 → 0 or 255 (full swing for cassette/beep). Independent of MUX.
+
+See `docs/audio-hal.md` for full MUX architecture and implementation details.
 
 ### Keyboard HAL (`hal_keyboard.cpp`)
 
