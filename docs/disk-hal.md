@@ -99,10 +99,12 @@ static void set_intrq(SV_DiskController* fdc, bool value) {
     if (value) {
         fdc->halt_enable = false;    // INTRQ disables HALT
         signal_halt(fdc, false);     // Release CPU
-        if (!fdc->density && fdc->intrq)
-            signal_nmi(fdc, true);   // Fire NMI via density gating
+    }
+    // NMI gating runs unconditionally (matches XRoar exactly)
+    if (!fdc->density && fdc->intrq) {
+        signal_nmi(fdc, true);       // Fire NMI via density gating
     } else {
-        signal_nmi(fdc, false);      // Release NMI line (edge detection)
+        signal_nmi(fdc, false);      // Deassert NMI for edge detection
     }
 }
 ```
@@ -121,7 +123,17 @@ vely pausing the CPU.
 NMI is **NOT** controlled by a dedicated "NMI enable" bit. Instead, it fires automatically when INTRQ asserts, gated by the density bit (bit 5 of
 DSKREG, XOR'd).
 
-### Two NMI Paths (matching XRoar)
+### NMI Gating (matching XRoar rsdos.c)
+
+Both `set_intrq()` and `fdc_write_drive_select()` use the **same** NMI condition, exactly matching XRoar:
+
+```cpp
+if (!fdc->density && fdc->intrq) {
+    signal_nmi(fdc, true);
+} else {
+    signal_nmi(fdc, false);
+}
+```
 
 **Path 1 — INTRQ callback** (normal CoCo case, density bit 5 = 1 in original write):
 - DSKREG write `$A9`: original bit 5 = 1 → after XOR → `density = false`
@@ -129,9 +141,10 @@ DSKREG, XOR'd).
 
 **Path 2 — DSKREG write** (density bit 5 = 0 in original write):
 - Original bit 5 = 0 → after XOR → `density = true`
-- In `fdc_write_drive_select`: `density && intrq` → true → `signal_nmi()` fires from the write
+- In `fdc_write_drive_select`: `!density` is false → NMI not fired from this path
+- NMI fires later when `set_intrq(true)` is called with `!density` true
 
-Both paths ensure NMI fires when INTRQ is pending, regardless of density setting.
+The `else` branch (deassert NMI) is critical for proper edge detection — without it, a stale NMI assertion can persist across operations.
 
 ### INTRQ Lifecycle
 
@@ -465,6 +478,28 @@ M.
 9. **WRITE TRACK is essential for DSKINI.** Disk formatting uses the Type III WRITE TRACK command, not individual WRITE SECTOR calls. The raw byte
  stream must be parsed to extract sector data for sector-based image formats.
 
-10. **READ and WRITE SECTOR have different INTRQ/HALT strategies.** READ SECTOR bypasses HALT (sets `drq` directly) and defers INTRQ via the byte-
-257 mechanism, because instant HALT would prevent STA from storing the last byte. WRITE SECTOR uses proper DRQ/HALT sync (via `set_drq()`) and fir
-es INTRQ immediately, because the CPU has already completed the STA by the time the FDC processes the last byte.
+10. **READ and WRITE SECTOR have different INTRQ/HALT strategies.** READ SECTOR bypasses HALT (sets `drq` directly) and defers INTRQ via the byte-257 mechanism, because instant HALT would prevent STA from storing the last byte. WRITE SECTOR uses proper DRQ/HALT sync (via `set_drq()`) and fires INTRQ immediately, because the CPU has already completed the STA by the time the FDC processes the last byte.
+
+11. **NMI gating must use the same condition in both paths.** Both `set_intrq()` and `fdc_write_drive_select()` must check `!density && intrq` (matching XRoar). An earlier bug had `fdc_write_drive_select` using `density && intrq` (inverted polarity). Both paths also need the `else { signal_nmi(false); }` branch to properly deassert NMI for edge detection.
+
+12. **OS-9 requires SAM all-RAM mode.** The OS-9 bootstrap (loaded from Track 34 via the DOS command) writes to $FFDF to set SAM MAP TYPE=1, mapping the full 64KB as RAM. Without all-RAM support in `machine_read()`/`machine_write()`, the bootstrap's writes to $8000+ are silently dropped and reads return ROM data instead of the loaded OS-9 kernel, causing an immediate crash. The I/O space ($FF00–$FFFF) must remain hardware-decoded regardless of MAP TYPE.
+
+---
+
+## OS-9 Boot Sequence (DOS Command)
+
+The Disk BASIC `DOS` command (DOSCOM at $DF00 in disk11.rom) boots OS-9:
+
+1. **SWI3** — no-op hook (vectors through $0100 → RTI)
+2. **Read 18 sectors** from Track 34, Drive 0 into $2600–$37FF via DSKCON
+3. **Check** first 2 bytes at $2600 for "OS" ($4F $53)
+4. **Jump to $2602** if found (LBEQ with 16-bit offset wrapping to $2602)
+
+The OS-9 bootstrap at $2602 then:
+- Disables PIA0 CB1 interrupt (CLR $FF03) — stops 60Hz timer
+- Enables SAM all-RAM mode (STA $FFDF) — unmaps ROMs
+- Configures SAM VDG/memory registers
+- Loads the OS-9 kernel from disk into upper RAM
+- Transfers control to the kernel
+
+**Key dependency**: SAM all-RAM mode support in `machine_read()`/`machine_write()` (see `core.md` Memory Map section).

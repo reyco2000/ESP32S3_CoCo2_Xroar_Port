@@ -205,23 +205,25 @@ uint8_t machine_read(uint16_t addr) {
     }
 
     // --- ROM space: $8000-$FEFF ---
-    if (addr >= 0xC000) {
-        // Cartridge ROM / Disk BASIC: $C000-$FEFF
-        if (m->rom_cart_loaded) {
-            return m->rom_cart[addr - 0xC000];
-        }
-        return 0xFF;
-    }
-
-    if (addr >= 0xA000) {
-        // Color BASIC: $A000-$BFFF
-        if (m->rom_basic_loaded) {
-            return m->rom_basic[addr - 0xA000];
-        }
-        return 0xFF;
-    }
-
+    // SAM MAP TYPE (ty) = 1: all-RAM mode — ROMs unmapped, full 64K is RAM
     if (addr >= 0x8000) {
+        if (m->sam.ty && (size_t)addr < m->ram_size) {
+            return m->ram[addr];
+        }
+        if (addr >= 0xC000) {
+            // Cartridge ROM / Disk BASIC: $C000-$FEFF
+            if (m->rom_cart_loaded) {
+                return m->rom_cart[addr - 0xC000];
+            }
+            return 0xFF;
+        }
+        if (addr >= 0xA000) {
+            // Color BASIC: $A000-$BFFF
+            if (m->rom_basic_loaded) {
+                return m->rom_basic[addr - 0xA000];
+            }
+            return 0xFF;
+        }
         // Extended BASIC: $8000-$9FFF
         if (m->rom_extbas_loaded) {
             return m->rom_extbas[addr - 0x8000];
@@ -317,8 +319,13 @@ void machine_write(uint16_t addr, uint8_t val) {
         return;
     }
 
-    // --- ROM space: writes ignored ---
+    // --- ROM space: $8000-$FEFF ---
+    // SAM MAP TYPE (ty) = 1: all-RAM mode — writes go to RAM
     if (addr >= 0x8000) {
+        if (m->sam.ty && (size_t)addr < m->ram_size) {
+            m->ram[addr] = val;
+        }
+        // Normal mode: writes to ROM space are ignored
         return;
     }
 
@@ -580,7 +587,12 @@ void machine_run_frame(Machine* m) {
 
     for (int line = 0; line < SCANLINES_PER_FRAME; line++) {
         machine_run_scanline(m);
+        // Capture audio level after each scanline for pitch-correct playback
+        hal_audio_capture_scanline();
     }
+
+    // Commit scanline audio buffer to ISR for playback at correct CoCo rate
+    hal_audio_commit_frame();
 
     // Present completed frame (with VRAM shadow compare — OPT-16)
     hal_video_present(m->ram, m->sam.vdg_base, m->vdg.mode);

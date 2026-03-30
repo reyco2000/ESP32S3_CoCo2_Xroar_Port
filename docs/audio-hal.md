@@ -96,14 +96,51 @@ The audio subsystem emulates the CoCo's two audio output paths using LEDC PWM on
 
 **Last write wins** — both paths write to the same `audio_current_level` byte. The real CoCo has the same behavior (single speaker output).
 
-### Timer ISR
+### Pitch-Corrected Scanline Buffer (2026-03-28)
+
+#### The Problem
+
+The emulated 6809 CPU executes ~2.6x faster than a real 0.895 MHz CoCo in wall-clock time (14916 cycles complete in ~6.5ms instead of 16.67ms). The remaining frame time is spent on SPI display rendering. This means DAC transitions from the SOUND command occur too quickly, producing audio roughly 2.6x higher in pitch than correct.
+
+#### The Solution
+
+Instead of writing DAC values directly to the PWM, audio is buffered at scanline rate and played back at the correct CoCo timing:
+
+1. **Capture**: After each scanline in `machine_run_frame()`, `hal_audio_capture_scanline()` records the current `audio_current_level` into a 262-entry double buffer.
+2. **Commit**: At frame end, `hal_audio_commit_frame()` signals the ISR to swap to the new buffer.
+3. **Playback**: The 22050 Hz ISR walks through the buffer using a Q8 fixed-point stride (`ISR_STRIDE_Q8`) calibrated so 262 samples play back over exactly one CoCo frame period (~16.67ms).
+4. **Looping**: When the ISR exhausts the buffer (during the ~20ms render gap between frames), it wraps to the beginning. This is seamless for periodic tones like SOUND.
 
 ```
+machine_run_frame():
+  for each scanline (0-261):
+    machine_run_scanline()      → CPU executes ~57 cycles, DAC may change
+    hal_audio_capture_scanline() → snapshot audio_current_level into buffer
+  hal_audio_commit_frame()       → signal ISR to swap to new buffer
+
 audio_timer_isr() [IRAM_ATTR, 22050 Hz]:
-  1. Read audio_current_level (volatile uint8_t)
-  2. Write to LEDC duty register (sample << 4)
-  3. Trigger LEDC update
+  1. If new buffer ready: swap read/write buffers, reset position
+  2. Read sample from playback buffer at Q8 index
+  3. Advance index by ISR_STRIDE_Q8 (wraps at 262 for looping)
+  4. Write to LEDC duty register
 ```
+
+#### Pitch Fine-Tuning
+
+The base stride is calculated as `262 * 256 * 60 / 22050 ≈ 183`. An `AUDIO_PITCH_TRIM` constant (currently -6) adjusts for residual error from scanline-boundary quantization. Each trim unit changes pitch by ~0.55%.
+
+| Trim | Stride | Effect |
+|------|--------|--------|
+| 0 | 183 | Base rate (slightly sharp) |
+| -6 | 177 | Current setting (~3.3% lower) |
+
+**Measured accuracy**: With trim=-6, `SOUND 84,20` on ESP32 matches `SOUND 82,20` on XRoar (desktop emulator) — within ~1% of correct pitch. Residual error is attributed to scanline-boundary quantization of DAC transitions.
+
+#### Bandwidth
+
+Scanline-rate sampling gives an effective sample rate of 262 × 60 = 15,720 Hz (Nyquist limit ~7.8 kHz). This covers the full CoCo audio range — the SOUND command's maximum frequency is well under 4 kHz.
+
+### Timer ISR
 
 The ISR uses direct register access (`LEDC.channel_group[0].channel[N]`) for minimum latency (~1 us per invocation). The `IRAM_ATTR` ensures it stays in fast internal RAM.
 
@@ -169,3 +206,5 @@ The MUX doesn't affect the joystick comparator — it only controls whether the 
 4. **The ISR approach (22 kHz timer → PWM) works well on ESP32-S3.** The LEDC PWM at 78 kHz produces a pseudo-analog signal that sounds acceptable through a small speaker. The timer ISR with `IRAM_ATTR` adds minimal overhead (~22,050 calls/sec at ~1 us each = ~2.2% CPU).
 
 5. **No external DAC needed.** The ESP32-S3 lacks an internal DAC (unlike ESP32), but LEDC PWM with an RC filter on the output pin produces adequate audio quality for 6-bit CoCo sound.
+
+6. **Pitch correction requires buffered playback, not CPU throttling.** The CPU runs faster than real-time during each frame burst, making audio timing-dependent code (SOUND, PLAY) produce the wrong pitch. Scanline-rate buffering with ISR playback at the correct CoCo rate fixes pitch without sacrificing emulation speed (~25-27 fps). The looping buffer handles the render gap seamlessly for periodic tones. Residual ~1% pitch error comes from scanline-boundary quantization of DAC transitions.

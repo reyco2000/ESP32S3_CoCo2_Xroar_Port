@@ -81,6 +81,15 @@ void hal_audio_write_bit(bool value);
 // Write 6-bit DAC audio (PIA1 port A bits 2-7, value 0-63)
 void hal_audio_write_dac(uint8_t dac6);
 
+// Call once per frame from main loop — detects end-of-sound and prints frequency debug
+void hal_audio_debug_tick(void);
+
+// Capture current audio level for the current scanline (call once per scanline)
+void hal_audio_capture_scanline(void);
+
+// Commit the scanline audio buffer for ISR playback (call at frame end)
+void hal_audio_commit_frame(void);
+
 // ============================================================
 // Keyboard subsystem
 // ============================================================

@@ -518,9 +518,9 @@ typedef struct Machine {
 
 ```
 $0000–$7FFF  RAM (64 KB, lower 32 KB directly visible)
-$8000–$9FFF  Extended BASIC ROM (8 KB)
-$A000–$BFFF  Color BASIC ROM (8 KB)
-$C000–$FEFF  Disk BASIC / Cartridge ROM (up to 16 KB)
+$8000–$9FFF  Extended BASIC ROM (8 KB)   — or RAM when SAM TY=1
+$A000–$BFFF  Color BASIC ROM (8 KB)      — or RAM when SAM TY=1
+$C000–$FEFF  Disk BASIC / Cartridge ROM  — or RAM when SAM TY=1
 $FF00–$FF1F  PIA0 (4 regs mirrored every 4 bytes)
 $FF20–$FF3F  PIA1 (4 regs mirrored every 4 bytes)
 $FF40–$FF5F  WD1793 Disk Controller (DSKREG + FDC regs)
@@ -529,14 +529,23 @@ $FFC0–$FFDF  SAM control (write-only bit set/clear)
 $FFE0–$FFFF  Interrupt vectors (from Color BASIC ROM $BFE0–$BFFF)
 ```
 
+### SAM All-RAM Mode (MAP TYPE)
+
+Writing to $FFDF sets the SAM MAP TYPE bit (`sam.ty = true`), enabling **all-RAM mode**. In this mode, $8000–$FEFF maps to RAM instead of ROM — the full 64 KB address space becomes read/write RAM. Writing to $FFDE clears the bit, restoring normal ROM mapping.
+
+The I/O space ($FF00–$FFFF) is always hardware-decoded regardless of MAP TYPE, so PIA, FDC, SAM registers, and interrupt vectors continue to work normally.
+
+This mode is required by **OS-9 Level 1**, which uses the DOS command to load a bootstrap from Track 34 into $2600, then the bootstrap enables all-RAM mode to copy itself into upper memory and load the OS-9 kernel.
+
 ### Memory Access (`machine_read` / `machine_write`)
 
 The CPU's `read` and `write` function pointers point to `machine_read()` and `machine_write()`, which implement the full address decoder:
 
+- **I/O space** ($FF00–$FFFF) is always checked first — hardware-decoded regardless of MAP TYPE
 - **Reads** from I/O space perform side effects (PIA IRQ flag clearing, keyboard matrix scanning, FDC status)
 - **Writes** to PIA1 trigger VDG mode updates and audio DAC output
 - **Writes** to SAM update the VDG base address and mode bits
-- **Writes** to ROM space are silently ignored
+- **$8000–$FEFF**: when SAM TY=1, reads/writes go to RAM; when TY=0, reads return ROM and writes are ignored
 - ROM vectors at $FFE0–$FFFF read from Color BASIC ROM ($BFE0–$BFFF)
 
 ### Keyboard Scanning (in `machine_read`)

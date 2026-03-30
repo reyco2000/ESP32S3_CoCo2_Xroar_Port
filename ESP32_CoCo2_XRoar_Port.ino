@@ -32,6 +32,9 @@ void setup() {
     Serial.begin(115200);
     delay(500);
 
+    // Turn off onboard RGB LED (NeoPixel on GPIO 48)
+    neopixelWrite(RGB_BUILTIN, 0, 0, 0);
+
     DEBUG_PRINT("=================================");
     DEBUG_PRINT("CoCo_ESP32 - Starting up...");
     DEBUG_PRINTF("CPU freq: %d MHz", ESP.getCpuFreqMHz());
@@ -129,4 +132,7 @@ void loop() {
 
     // Push framebuffer to display
     hal_render_frame();
+
+    // Sound frequency debug — detect end-of-sound and report
+    hal_audio_debug_tick();
 }

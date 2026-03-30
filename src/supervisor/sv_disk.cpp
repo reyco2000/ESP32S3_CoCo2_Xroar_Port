@@ -67,12 +67,12 @@ static void set_intrq(SV_DiskController* fdc, bool value) {
         // INTRQ asserted: disable HALT and release CPU
         fdc->halt_enable = false;
         signal_halt(fdc, false);
-        // Fire NMI based on density gating (XRoar: !ic1_density && intrq_flag)
-        if (!fdc->density && fdc->intrq) {
-            signal_nmi(fdc, true);
-        }
+    }
+    // NMI gating: matches XRoar rsdos.c set_intrq() exactly
+    // NMI fires when !density AND intrq; otherwise NMI deasserted
+    if (!fdc->density && fdc->intrq) {
+        signal_nmi(fdc, true);
     } else {
-        // INTRQ deasserted: release NMI line for proper edge detection
         signal_nmi(fdc, false);
     }
 }
@@ -427,10 +427,12 @@ static void fdc_write_drive_select(SV_DiskController* fdc, uint8_t value) {
     uint8_t xored = value ^ 0x20;
     fdc->density = (xored & 0x20) != 0;
 
-    // NMI: if density flag (after XOR) is set AND INTRQ pending,
-    // fire NMI from this write (XRoar: if (ic1_density && intrq_flag) signal_nmi)
-    if (fdc->density && fdc->intrq) {
+    // NMI gating: matches XRoar rsdos.c ff40_write()
+    // NMI fires when !ic1_density AND intrq_flag; otherwise NMI deasserted
+    if (!fdc->density && fdc->intrq) {
         signal_nmi(fdc, true);
+    } else {
+        signal_nmi(fdc, false);
     }
 
     // Bit 7 = HALT enable (NOT NMI!) — matches XRoar: halt_enable = octet & 0x80
