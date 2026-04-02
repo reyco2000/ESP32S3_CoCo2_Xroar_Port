@@ -44,7 +44,7 @@ A full **TRS-80 Color Computer 2 (CoCo 2)** emulator running on an ESP32-S3 micr
  [To Joy2 Btn] <--GPIO07 -| 7                 41 |- GPIO41 ---> [To SD MISO]
    [To Joy2 Y]<-- GPIO15 -| 15                40 |- GPIO40 ---> [To MOSI SD]
    [To Joy2 X]<-- GPIO16 -| 16                39 |- GPIO39 ---> [To SD SCK]
-                  GPIO17 -| 17                38 |- GPIO38 ---> [To SD CS]
+   [Audio Out]<-- GPIO17 -| 17                38 |- GPIO38 ---> [To SD CS]
  [To Joy1 Btn] <--GPIO18 -| 18                37 |- GPIO37
    [To Joy1 Y] <--GPIO08 -| 8                 36 |- GPIO36
                    GPIO3 -| 3       [RGB]     35 |- GPIO35
