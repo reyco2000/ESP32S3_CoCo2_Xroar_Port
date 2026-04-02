@@ -137,6 +137,9 @@ struct Machine;
 void hal_keyboard_set_machine(Machine* m);
 
 
+// Force full display repaint (invalidates VRAM shadow compare)
+void hal_video_force_repaint(void);
+
 // Toggle FPS overlay
 void hal_video_toggle_fps_overlay(void);
 

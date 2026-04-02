@@ -397,6 +397,7 @@ void supervisor_toggle(void) {
         // Deactivate
         restore_snapshot();
         sv.state = SV_INACTIVE;
+        hal_video_force_repaint();
         DEBUG_PRINT("Supervisor: deactivated");
     }
 }

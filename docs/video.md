@@ -39,6 +39,7 @@ line_buffer[256] → hal_video_render_scanline() → sprite FB → pushSprite()
 - 262 scanlines per frame (NTSC), 192 active
 - `hal_video_present()` implements **VRAM shadow compare** (OPT-16, 2026-03-26): before pushing, `memcmp()` compares the current CoCo VRAM region against a 6,144-byte shadow buffer. If VRAM content, VDG mode, and SAM display base are all unchanged, the SPI push is skipped entirely
 - On mode or base change, a 10-frame force-push window ensures multi-frame screen setup (e.g., game title screens) is fully captured
+- `hal_video_force_repaint()` sets `force_push_count = 3` to force TFT pushes on demand — called when the supervisor OSD closes so the emulated display repaints over OSD residue (fixes blank screen after F1 toggle under OS-9 or any static-screen scenario)
 - **Replaces the old blind `FRAME_SKIP=1`** (which pushed every 2nd frame regardless of changes) with intelligent dirty detection — dirty frames push immediately, unchanged frames are free
 - **Measured performance** (2026-03-26): 64 FPS text mode (static), 45 FPS graphics (static), 27 FPS graphics (scrolling VRAM)
 
@@ -137,6 +138,7 @@ Toggled via `hal_video_toggle_fps_overlay()` (mapped to F5 in supervisor).
 | `hal_video_render_scanline()` | Convert one VDG scanline to RGB565 in sprite FB |
 | `hal_video_present(ram, vdg_base, vdg_mode)` | VRAM shadow compare + conditional push to TFT |
 | `hal_video_set_mode()` | Stub — mode changes handled by VDG/PIA directly |
+| `hal_video_force_repaint()` | Force next 3 frames to push (invalidates VRAM shadow) |
 | `hal_video_toggle_fps_overlay()` | Toggle FPS counter |
 | `hal_video_get_tft()` | Expose TFT instance for supervisor OSD rendering |
 

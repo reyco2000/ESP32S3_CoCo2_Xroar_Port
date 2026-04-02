@@ -253,6 +253,10 @@ static void fps_overlay_draw(void) {
     tft.drawString(buf, 2, 2);
 }
 
+void hal_video_force_repaint(void) {
+    force_push_count = 3;
+}
+
 void hal_video_toggle_fps_overlay(void) {
     fps_overlay_enabled = !fps_overlay_enabled;
     if (!fps_overlay_enabled && display_available) {
